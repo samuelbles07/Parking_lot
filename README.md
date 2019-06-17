@@ -1,6 +1,6 @@
 # Parking Lot
 
-#### Just like a similar parking scenario in mall or other parking system
+#### Parking lot system based on Raspberry PI. Just like a similar parking scenario in mall or other parking system
 
 **Hardware used**
 
