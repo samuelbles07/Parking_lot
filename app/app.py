@@ -10,6 +10,8 @@ from gui.ui_driver import MyGui
 
 # import component library
 import RPi.GPIO as GPIO
+import pymodbus
+from pymodbus.client.sync import ModbusTcpClient as ModbusClient
 
 BUTTONA = 17
 BUTTONB = 18
@@ -18,6 +20,9 @@ LED_GREEN = 22
 LED_RED = 23
 
 BUZZER = 27
+
+SERVER_HOST = '192.168.1.4'
+SERVER_PORT = 502
 
 class App(MyGui):
     def __init__(self, GUI):
@@ -40,6 +45,8 @@ class App(MyGui):
         GPIO.setmode(GPIO.BCM)
         GPIO.setup(BUTTONA, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
         GPIO.setup(BUTTONB, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+
+        self.gate = ModbusClient(SERVER_HOST, SERVER_PORT)
 
         # Just initialize variable
         self.in_home = True
@@ -75,6 +82,27 @@ class App(MyGui):
             self.pwm.stop()
 
         print("done")
+
+    def send_command(self, state):
+        # open or reconnect TCP to server
+        if not c.is_open():
+            if not c.open():
+                print("unable to connect to "+SERVER_HOST+":"+str(SERVER_PORT))
+                # TODO: So what todo?
+
+        # if open() is ok, write coils (modbus function 0x01)
+        if c.is_open():
+            print("Send command")
+            print("----------")
+            
+            ret = c.write_single_coil(1, state)
+            if ret:
+                print("bit #" + str(1) + ": write to " + str(state))
+            else:
+                print("bit #" + str(1) + ": unable to write " + str(state))
+            time.sleep(0.5)
+
+            time.sleep(1)
 
     def valid_page(self):
         self.gui.paywindow()
@@ -140,13 +168,13 @@ class App(MyGui):
         if self.data_valid is True:
             self.db.insert_exit([self.order_number, self.enter_time, self.parking_time, self.total_payment])
 
-            # TODO: send open gate to PLC
+            self.send_command(0)    # Opening gate
             print("Payment done! Opening Gate")
             #TODO: POP up selamat jalan
 
             time.sleep(5) # NOTE: Simulate vehicle already out of gate
-
-            # TODO: send open close to PLC
+            self.send_command(1)    # Closing gate
+            time.sleep(3) # NOTE: Simulate gate already closed
 
             GPIO.output(LED_GREEN, GPIO.LOW)
 
