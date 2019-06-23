@@ -1,10 +1,12 @@
 # import others
 import datetime
 import time
+from thread import BaseThread
 
 # import module
 from peripherals import Peripherals
 from db import Database
+from gui.ui_driver import MyGui
 
 # import component library
 import RPi.GPIO as GPIO
@@ -17,11 +19,11 @@ LED_RED = 23
 
 BUZZER = 27
 
-class App():
-    def __init__(self):
+class App(MyGui):
+    def __init__(self, GUI):
         self.peripheral = Peripherals()
         self.db = Database()
-        #TODO: GUI
+        self.gui = GUI
 
         # Setup IO
         GPIO.setmode(GPIO.BCM)
@@ -42,12 +44,15 @@ class App():
         # Just initialize variable
         self.in_home = True
         self.data_valid = False
-        self.order_number = ""
+        self.order_number = int(lastid_enter) + 1
         self.barcode = ""
         self.enter_time = ""
         self.exit_time = ""
         self.parking_time = 0
         self.total_payment = 0
+
+        self.gui.show_home()
+        self.gui.display_ordernumber(self.order_number)
 
     def do_buzzer(self, fading, times):
         print("buzz")
@@ -71,6 +76,17 @@ class App():
 
         print("done")
 
+    def valid_page(self):
+        self.gui.paywindow()
+        data = [
+            self.barcode,
+            self.enter_time,
+            self.exit_time,
+            self.parking_time,
+            self.total_payment
+        ]
+        self.gui.display_validpage(data)
+
     def scanner_callback(self, data):
         self.in_home = False
         print("Scanned barcode: %s" % str(data))
@@ -82,7 +98,8 @@ class App():
 
             resp = self.db.select_exit(self.order_number)
             if resp != "":
-                #TODO : go to validation page, display variables, POP UP "data tidak sesuai"
+                #TODO : POP UP "data tidak sesuai"
+                self.valid_page()
                 print("Invalid, vehicle already exit!")
                 self.do_buzzer(False, 3)
                 GPIO.output(LED_RED, GPIO.HIGH)
@@ -107,13 +124,14 @@ class App():
                 print("Parking time: %s" % self.parking_time)
                 print("Total Payment: %s" % self.total_payment)
                 print("Exit Time: %s" % self.exit_time)
-                # TODO: Display variables to GUI, change to validation page
+                self.valid_page()
 
                 self.do_buzzer(False, 2)
 
 
         else:
-            #TODO : go to validation page, display variables, POP UP "data tidak sesuai"
+            #TODO : POP UP "data tidak sesuai"
+            self.valid_page()
             print("Not valid, barcode never registered!")
             self.do_buzzer(False, 3)
             GPIO.output(LED_RED, GPIO.HIGH)
@@ -142,7 +160,7 @@ class App():
         # Reset all variables
         self.in_home = True
         self.data_valid = False
-        self.order_number = ""
+        self.order_number = int(self.order_number) + 1
         self.barcode = ""
         self.enter_time = ""
         self.exit_time = ""
@@ -150,7 +168,9 @@ class App():
         self.total_payment = 0
         self.peripheral.start_scanner(self.scanner_callback)
 
-        #TODO: go back to home page
+        #NOTE: go back to home page
+        self.gui.show_home()
+        self.gui.display_ordernumber(self.order_number)
 
 
     def do_enter(self):
@@ -186,8 +206,19 @@ class App():
         
         GPIO.output(LED_GREEN, GPIO.LOW)
 
+    def startapp(self):
+        self.app_thr = BaseThread(
+            name='appevt',
+            target=self.run,
+            callback=self.appexit
+        )
+        self.app_thr.start()
 
-    def start(self):
+    # Not yet needed
+    def appexit(self):
+        print("exit")
+
+    def run(self):
         print("App start!")
         self.peripheral.start_scanner(self.scanner_callback)
 
@@ -208,5 +239,8 @@ class App():
 
 
 if __name__ == "__main__":
-    myapp = App()
-    myapp.start()
+    mygui = MyGui()
+    myapp = App(mygui)
+    myapp.startapp()
+
+    mygui.start()

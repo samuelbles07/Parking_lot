@@ -9,5 +9,18 @@
 - Taffware POS-5890K USB Thermal Printer
 - HDMI Display
 
+**Generate .ui to .py**
+
+```
+$ pyuic5 home.ui -o home.py
+$ pyuic5 payment.ui -o payment.py
+```
+
 
 add later add later
+
+TODO :
+
+- add PLC communication
+- add requirements
+- TODO's in code
